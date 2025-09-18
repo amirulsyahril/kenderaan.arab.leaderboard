@@ -1,132 +1,111 @@
-<!DOCTYPE html>
-<html lang="ms">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Penyertaan & Papan Skor</title>
-  <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 16px; background:#fafafa; }
-    .wrap { max-width: 800px; margin: 0 auto; display: grid; gap: 16px; }
-    .card { background:#fff; border:1px solid #e8e8e8; border-radius:14px; padding:16px; box-shadow: 0 2px 8px #0001; }
-    h2 { margin: 0 0 8px; font-size: 20px; }
-    label { font-size: 12px; color:#666; display:block; margin-bottom:4px; }
-    input, button {
-      padding:10px 12px; border-radius:10px; border:1px solid #ccc; width:100%; box-sizing:border-box;
-    }
-    button { cursor:pointer; margin-top:8px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { padding:10px; border-bottom:1px solid #eee; text-align:left; font-size: 14px; }
-    th { background:#f6f6f6; }
-    .muted { font-size: 12px; color:#777; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <h2>Hantar Penyertaan / Skor</h2>
-      <label>Nama</label>
-      <input id="nama" placeholder="Nama murid" />
-      <label>Kelas</label>
-      <input id="kelas" placeholder="cth: 5 Bijak" />
-      <label>Sekolah</label>
-      <input id="sekolah" placeholder="cth: SK Bohor Baharu" />
-      <label>Skor</label>
-      <input id="skor" type="number" placeholder="cth: 80" />
-      <button id="btnSubmit">Hantar</button>
-      <div id="submitNote" class="muted"></div>
-    </div>
+<script>
+  // === SETKAN URL WEB APP ANDA DI SINI (WAJIB) ===
+  let API_BASE = 'https://script.google.com/macros/s/AKfycbwTPz-Cb_LSrVyWoAixaFVPZcaT4ZZwocqWIia0hxOJLEz2nCHG2jDU_5UKr_HERmtfyg/exec'.trim(); // contoh: https://script.google.com/macros/s/AKfycb.../exec
+  const API_KEY  = ''; // isi jika Apps Script anda aktifkan kunci (USE_SECRET=true); jika tidak, biar kosong.
 
-    <div class="card">
-      <h2>Papan Skor</h2>
-      <button id="btnRefresh">Segarkan</button>
-      <table id="tbl">
-        <thead>
-          <tr><th>#</th><th>Nama</th><th>Kelas</th><th>Sekolah</th><th>Skor</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <div id="status" class="muted"></div>
-    </div>
-  </div>
+  // --- Validasi asas URL (beri mesej awal jika tak sah) ---
+  function assertValidUrl(u) {
+    try { new URL(u); return true; }
+    catch (e) { return false; }
+  }
 
-  <script>
-    const API_BASE = 'https://script.google.com/macros/s/AKfycbwTPz-Cb_LSrVyWoAixaFVPZcaT4ZZwocqWIia0hxOJLEz2nCHG2jDU_5UKr_HERmtfyg/exec';
-    const API_KEY  = ''; // isi jika guna kunci rahsia
+  // Simpan device_id asas (untuk jejak ringan)
+  const device_id = (() => {
+    const k = 'game_device_id';
+    const v = localStorage.getItem(k) || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+    localStorage.setItem(k, v);
+    return v;
+  })();
 
-    const device_id = (() => {
-      const k = 'game_device_id';
-      const v = localStorage.getItem(k) || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
-      localStorage.setItem(k, v);
-      return v;
-    })();
+  const $ = id => document.getElementById(id);
 
-    const $ = id => document.getElementById(id);
+  async function loadLeaderboard() {
+    let url = API_BASE;
+    if (API_KEY) url += (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(API_KEY);
 
-    async function loadLeaderboard() {
-      let url = API_BASE;
-      if (API_KEY) url += `?key=${encodeURIComponent(API_KEY)}`;
-      try {
-        const res = await fetch(url, { cache: 'no-store' });
-        const json = await res.json();
-        const tbody = document.querySelector('#tbl tbody');
-        tbody.innerHTML = '';
-        if (json.ok && Array.isArray(json.data)) {
-          json.data.slice(0, 50).forEach((r, idx) => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-              <td>${idx+1}</td>
-              <td>${r.nama||''}</td>
-              <td>${r.kelas||''}</td>
-              <td>${r.sekolah||''}</td>
-              <td>${r.skor??0}</td>`;
-            tbody.appendChild(tr);
-          });
-          $('status').textContent = `Jumlah rekod: ${json.data.length}`;
-        } else {
-          $('status').textContent = 'Tiada data / ralat.';
-        }
-      } catch (e) {
-        $('status').textContent = 'Gagal muat: ' + e;
-      }
+    if (!assertValidUrl(url)) {
+      $('status').textContent = 'Konfigurasi API_BASE tidak sah. Semak URL /exec.';
+      return;
     }
 
-    async function submitScore() {
-      const nama    = $('nama').value.trim();
-      const kelas   = $('kelas').value.trim();
-      const sekolah = $('sekolah').value.trim();
-      const skor    = $('skor').value;
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      // Apps Script balas JSON standard → parse
+      const json = await res.json();
 
-      if (!nama || !kelas || !sekolah || skor === '') {
-        $('submitNote').textContent = 'Sila lengkapkan semua maklumat.';
-        return;
-      }
+      const tbody = document.querySelector('#tbl tbody');
+      tbody.innerHTML = '';
 
-      let url = API_BASE;
-      if (API_KEY) url += `?key=${encodeURIComponent(API_KEY)}`;
-
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nama, kelas, sekolah, skor, device_id })
+      if (json.ok && Array.isArray(json.data)) {
+        json.data.slice(0, 50).forEach((r, idx) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${idx+1}</td>
+            <td>${r.nama||''}</td>
+            <td>${r.kelas||''}</td>
+            <td>${r.sekolah||''}</td>
+            <td>${r.skor??0}</td>`;
+          tbody.appendChild(tr);
         });
-        const json = await res.json();
-        if (json.ok) {
-          $('submitNote').textContent = 'Skor dihantar!';
-          $('skor').value = '';
-          await loadLeaderboard();
-        } else {
-          $('submitNote').textContent = 'Ralat hantar skor.';
-        }
-      } catch (e) {
-        $('submitNote').textContent = 'Gagal hantar: ' + e;
+        $('status').textContent = `Jumlah rekod: ${json.data.length}`;
+      } else {
+        $('status').textContent = 'Tiada data / ralat.';
       }
+    } catch (e) {
+      $('status').textContent = 'Gagal muat: ' + (e?.message || e);
+    }
+  }
+
+  async function submitScore() {
+    const nama    = $('nama').value.trim();
+    const kelas   = $('kelas').value.trim();
+    const sekolah = $('sekolah').value.trim();
+    const skor    = $('skor').value;
+
+    if (!nama || !kelas || !sekolah || skor === '') {
+      $('submitNote').textContent = 'Sila lengkapkan semua maklumat.';
+      return;
     }
 
-    $('btnSubmit').addEventListener('click', submitScore);
-    $('btnRefresh').addEventListener('click', loadLeaderboard);
+    let url = API_BASE;
+    if (API_KEY) url += (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(API_KEY);
 
-    loadLeaderboard();
-  </script>
-</body>
-</html>
+    if (!assertValidUrl(url)) {
+      $('submitNote').textContent = 'Konfigurasi API_BASE tidak sah. Semak URL /exec.';
+      return;
+    }
+
+    try {
+      // Guna text/plain supaya request jadi “simple request” (elak preflight CORS)
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ nama, kelas, sekolah, skor, device_id })
+      });
+
+      // Apps Script balas JSON {ok:true/...}
+      const json = await res.json();
+
+      if (json.ok) {
+        $('submitNote').textContent = 'Skor dihantar!';
+        $('skor').value = '';
+        await loadLeaderboard();
+      } else {
+        $('submitNote').textContent = 'Ralat hantar skor: ' + (json.error || 'Tidak diketahui');
+      }
+    } catch (e) {
+      // Inilah mesej yang anda nampak sebelum ini — kini lebih spesifik
+      $('submitNote').textContent = 'Gagal hantar: ' + (e?.message || e);
+    }
+  }
+
+  $('btnSubmit').addEventListener('click', submitScore);
+  $('btnRefresh').addEventListener('click', loadLeaderboard);
+
+  // Cuba detect silap awal-awal
+  if (!assertValidUrl(API_BASE)) {
+    console.warn('API_BASE tidak sah. Pastikan ia URL Web App yang berakhir /exec');
+  }
+
+  loadLeaderboard();
+</script>
