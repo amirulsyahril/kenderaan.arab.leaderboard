@@ -5,100 +5,54 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Penyertaan & Papan Skor</title>
   <style>
-    :root { --radius: 14px; }
     body { font-family: system-ui, Arial, sans-serif; margin: 16px; background:#fafafa; }
-    .wrap { max-width: 900px; margin: 0 auto; display: grid; gap: 16px; }
-    .card { background:#fff; border:1px solid #e8e8e8; border-radius: var(--radius); padding:16px; box-shadow: 0 2px 8px #0001; }
+    .wrap { max-width: 800px; margin: 0 auto; display: grid; gap: 16px; }
+    .card { background:#fff; border:1px solid #e8e8e8; border-radius:14px; padding:16px; box-shadow: 0 2px 8px #0001; }
     h2 { margin: 0 0 8px; font-size: 20px; }
-    .grid { display:grid; gap:10px; }
-    .grid.cols-2 { grid-template-columns: 1fr 1fr; }
-    .grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
     label { font-size: 12px; color:#666; display:block; margin-bottom:4px; }
-    input, button, select {
-      padding:10px 12px; border-radius:10px; border:1px solid #d0d0d0; width:100%; box-sizing:border-box; background:#fff;
+    input, button {
+      padding:10px 12px; border-radius:10px; border:1px solid #ccc; width:100%; box-sizing:border-box;
     }
-    button { cursor:pointer; border:1px solid #ccc; }
-    .row { display:flex; gap:8px; flex-wrap: wrap; }
+    button { cursor:pointer; margin-top:8px; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { padding:10px; border-bottom:1px solid #eee; text-align:left; font-size: 14px; }
     th { background:#f6f6f6; }
-    .muted { color:#777; font-size: 12px; }
-    .ok { color: #0b8e36; }
-    .err { color: #b30000; }
+    .muted { font-size: 12px; color:#777; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h2>Maklumat Game</h2>
-      <div class="grid cols-3">
-        <div>
-          <label>Game ID</label>
-          <input id="gameId" placeholder="cth: level1" />
-        </div>
-        <div>
-          <label>Auto Segar (s)</label>
-          <input id="autoref" type="number" min="0" value="0" />
-        </div>
-        <div>
-          <label>Limit Paparan (Top N)</label>
-          <input id="limit" type="number" min="1" value="50" />
-        </div>
-      </div>
-      <div class="row" style="margin-top:10px;">
-        <button id="btnRefresh">Segarkan Papan Skor</button>
-      </div>
-      <div class="muted" id="status"></div>
-    </div>
-
-    <div class="card">
       <h2>Hantar Penyertaan / Skor</h2>
-      <div class="grid cols-2">
-        <div>
-          <label>Nama</label>
-          <input id="nama" placeholder="Nama murid" />
-        </div>
-        <div>
-          <label>Kelas</label>
-          <input id="kelas" placeholder="cth: 5 Bijak" />
-        </div>
-      </div>
-      <div class="grid cols-2" style="margin-top:10px;">
-        <div>
-          <label>Sekolah</label>
-          <input id="sekolah" placeholder="cth: SK Bohor Baharu" />
-        </div>
-        <div>
-          <label>Skor</label>
-          <input id="skor" type="number" placeholder="cth: 80" />
-        </div>
-      </div>
-      <div class="row" style="margin-top:10px;">
-        <button id="btnSubmit">Hantar</button>
-        <span class="muted">*Pastikan maklumat lengkap sebelum hantar.</span>
-      </div>
-      <div class="muted" id="submitNote"></div>
+      <label>Nama</label>
+      <input id="nama" placeholder="Nama murid" />
+      <label>Kelas</label>
+      <input id="kelas" placeholder="cth: 5 Bijak" />
+      <label>Sekolah</label>
+      <input id="sekolah" placeholder="cth: SK Bohor Baharu" />
+      <label>Skor</label>
+      <input id="skor" type="number" placeholder="cth: 80" />
+      <button id="btnSubmit">Hantar</button>
+      <div id="submitNote" class="muted"></div>
     </div>
 
     <div class="card">
       <h2>Papan Skor</h2>
+      <button id="btnRefresh">Segarkan</button>
       <table id="tbl">
         <thead>
-          <tr>
-            <th>#</th><th>Nama</th><th>Kelas</th><th>Sekolah</th><th>Skor</th>
-          </tr>
+          <tr><th>#</th><th>Nama</th><th>Kelas</th><th>Sekolah</th><th>Skor</th></tr>
         </thead>
         <tbody></tbody>
       </table>
+      <div id="status" class="muted"></div>
     </div>
   </div>
 
   <script>
-    /*********** SETTING API ***********/
-    const API_BASE = 'https://script.google.com/macros/s/AKfycbzV88pQQn3vtDFz4GECwnH8gWXkqWZ2D2yErA4PADPG3kk0iVudj4cgPBuCsTfUjfQ6IQ/exec'; // contoh: https://script.google.com/macros/s/XXXX/exec
-    const API_KEY  = ''; // jika Apps Script USE_SECRET=true, set kunci di sini; jika tidak, biarkan kosong.
+    const API_BASE = 'PASTE_APPS_SCRIPT_WEB_APP_URL_HERE';
+    const API_KEY  = ''; // isi jika guna kunci rahsia
 
-    // Simpan device_id asas (untuk jejak ringan)
     const device_id = (() => {
       const k = 'game_device_id';
       const v = localStorage.getItem(k) || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
@@ -106,63 +60,44 @@
       return v;
     })();
 
-    // Prefill game_id dari query
-    const params = new URLSearchParams(location.search);
-    const $ = (id) => document.getElementById(id);
-    if (params.get('game_id')) $('gameId').value = params.get('game_id');
-
-    let timer = null;
-
-    function setStatus(msg, ok=true) {
-      const el = $('status');
-      el.textContent = msg || '';
-      el.className = 'muted ' + (ok ? 'ok' : 'err');
-    }
+    const $ = id => document.getElementById(id);
 
     async function loadLeaderboard() {
-      const gameId = $('gameId').value || 'default_game';
-      const limit = Math.max(1, Number($('limit').value || 50));
-      let url = `${API_BASE}?game_id=${encodeURIComponent(gameId)}`;
-      if (API_KEY) url += `&key=${encodeURIComponent(API_KEY)}`;
-
+      let url = API_BASE;
+      if (API_KEY) url += `?key=${encodeURIComponent(API_KEY)}`;
       try {
         const res = await fetch(url, { cache: 'no-store' });
         const json = await res.json();
         const tbody = document.querySelector('#tbl tbody');
         tbody.innerHTML = '';
         if (json.ok && Array.isArray(json.data)) {
-          json.data.slice(0, limit).forEach((r, idx) => {
+          json.data.slice(0, 50).forEach((r, idx) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
               <td>${idx+1}</td>
               <td>${r.nama||''}</td>
               <td>${r.kelas||''}</td>
               <td>${r.sekolah||''}</td>
-              <td>${r.skor??0}</td>
-            `;
+              <td>${r.skor??0}</td>`;
             tbody.appendChild(tr);
           });
-          setStatus(`Muat: ${Math.min(json.data.length, limit)} rekod (game_id=${gameId}).`, true);
+          $('status').textContent = `Jumlah rekod: ${json.data.length}`;
         } else {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td colspan="5">Tiada data / ralat memuat.</td>`;
-          document.querySelector('#tbl tbody').appendChild(tr);
-          setStatus('Ralat memuat data.', false);
+          $('status').textContent = 'Tiada data / ralat.';
         }
       } catch (e) {
-        setStatus('Gagal memuat: ' + e, false);
+        $('status').textContent = 'Gagal muat: ' + e;
       }
     }
 
     async function submitScore() {
-      const game_id = $('gameId').value || 'default_game';
       const nama    = $('nama').value.trim();
       const kelas   = $('kelas').value.trim();
       const sekolah = $('sekolah').value.trim();
       const skor    = $('skor').value;
 
       if (!nama || !kelas || !sekolah || skor === '') {
-        $('submitNote').textContent = 'Sila lengkapkan Nama, Kelas, Sekolah dan Skor.';
+        $('submitNote').textContent = 'Sila lengkapkan semua maklumat.';
         return;
       }
 
@@ -173,12 +108,12 @@
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ game_id, nama, kelas, sekolah, skor, device_id })
+          body: JSON.stringify({ nama, kelas, sekolah, skor, device_id })
         });
         const json = await res.json();
         if (json.ok) {
-          $('skor').value = '';
           $('submitNote').textContent = 'Skor dihantar!';
+          $('skor').value = '';
           await loadLeaderboard();
         } else {
           $('submitNote').textContent = 'Ralat hantar skor.';
@@ -188,35 +123,10 @@
       }
     }
 
-    function setupAutoRefresh() {
-      if (timer) clearInterval(timer);
-      const sec = Number($('autoref').value || 0);
-      if (sec > 0) {
-        timer = setInterval(loadLeaderboard, sec * 1000);
-      }
-    }
-
-    // Log "dibuka" (opsyenal – rekod view tanpa skor)
-    (async () => {
-      const game_id = $('gameId').value || params.get('game_id') || 'default_game';
-      let url = API_BASE;
-      if (API_KEY) url += `?key=${encodeURIComponent(API_KEY)}`;
-      try {
-        await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ game_id, nama:'', kelas:'', sekolah:'', skor:'', device_id })
-        });
-      } catch (e) { /* abaikan */ }
-    })();
-
     $('btnSubmit').addEventListener('click', submitScore);
     $('btnRefresh').addEventListener('click', loadLeaderboard);
-    $('autoref').addEventListener('change', setupAutoRefresh);
 
-    // Mula
     loadLeaderboard();
-    setupAutoRefresh();
   </script>
 </body>
 </html>
